@@ -132,6 +132,7 @@ def getInverterDetails(btSocket, packet_send_counter, mylocalBTAddress, MySerial
     DeviceClass['8128']='CommunicationProduct'
 
     DeviceType={}
+    DeviceType['359'] ='SB 5000TL-20'    # <-- No idea why this one has this Type code
     DeviceType['9073']='SB 3000HF-30'
     DeviceType['9074']='SB 3000TL-21'
     DeviceType['9075']='SB 4000TL-21'
@@ -201,7 +202,6 @@ def getInverterDetails(btSocket, packet_send_counter, mylocalBTAddress, MySerial
             idx+=4
 
         offset+=40
-
 
     return reply
 
@@ -367,8 +367,8 @@ def extract_data(level2Packet):
     spotvaluelist[0x462e] = SpotValue("OperatingTime",3600, 16)#8 byte word
 
     spotvaluelist[0x251e] = SpotValue("DCPower1",1, 28)
-    spotvaluelist[0x451f] = SpotValue("DCVoltage1",100, 28)
-    spotvaluelist[0x4521] = SpotValue("DCCurrent1",1000, 28)
+    spotvaluelist[0x451f] = SpotValue("DCVoltage",100, 28)
+    spotvaluelist[0x4521] = SpotValue("DCCurrent",1000, 28)
 
     spotvaluelist[0x2377] = SpotValue("InvTemperature",100, 28)
     #spotvaluelist[0x821e] = SpotValue("Inverter Name",0, 28)
@@ -387,7 +387,6 @@ def extract_data(level2Packet):
         recordSize=28
         value=0
         classtype = level2Packet.getByte(offset)
-        #classtype should always be =1
         readingtype = level2Packet.getTwoByte(offset+1)
         dataType = level2Packet.getByte(offset+3)
         datetime = level2Packet.getFourByteLong(offset+4)
@@ -416,16 +415,13 @@ def extract_data(level2Packet):
 
 
 
-                # Special case for DC voltage input (aka SPOT_UDC1 / SPOT_UDC2)
-                #if (readingtype==0x451f):
-                #    if (classtype==1):
-                #        outputlist["DCVoltage1"] = SpotValueOutput("DCVoltage1".format(readingtype), toVolt(value))
-                #    if (classtype==2):
-                #        outputlist["DCVoltage2"] = SpotValueOutput("DCVoltage2".format(readingtype), toVolt(value))
-                #else:
-                #    outputlist[v.Description] = SpotValueOutput(v.Description, float(value) / float(v.Scale))
-
-                outputlist[v.Description] = SpotValueOutput(v.Description, round( float(value) / float(v.Scale) ,4)  )
+                # Special case for DC voltage/current input (aka SPOT_UDC1 / SPOT_UDC2, etc)
+                if (readingtype==0x451f or readingtype==0x4521):
+                    readingDescription = v.Description + str(classtype)
+                    outputlist[readingDescription] = SpotValueOutput(readingDescription, round(float(value) / float(v.Scale),4) )
+                else:
+                    # normal condition
+                    outputlist[v.Description] = SpotValueOutput(v.Description, round(float(value) / float(v.Scale),4) )
                 offset+=v.RecSize
 
             else:
